@@ -21,3 +21,24 @@ App.js 에서 transformTask 함수를 선언하고 데이터 변환 코드를 �
 기존에 App 컴포넌트 내부에서 상태 갱신만 담당하던 fetchTasks 와 달리 이제 App 컴포넌트에서는 fetchTasks 내부 로직을 알 수 없기 때문에 가 바뀔때마다 재실행하기 위해 의존성을 추가해야 한다.
 하지만 현 시점에서 useEffect 의존성 배열에 fetchTasks 를 추가하게 되면 infinity re-rendering 이 발생한다.
 -> 따라서 생략
+
+# 203. 사용자 정의 훅 로직 정의하기
+### infinity re-render 발생원인
+App.js 에서 fetchTask 함수를 호출하면 커스텀 훅 안에 있는 sendRequest 함수가 실행되면서 몇몇 상태가 변경된다. -> 커스텀 훅을 사용하는 컴포넌트들에서도 리랜더링이 발생한다.
+이는 컴포넌트에서 상태를 변경하는 커스텀 훅을 사용하면 묵시적으로 커스텀 훅에 의해 변경된 상태를 사용하기 때문이다. 
+따라서 커스텀 훅에 의해 상태가 재평가 되는 순간 커스텀 훅이 다시 호출되고 sendRequest 함수 역시 재생성 되는데 재생성된 함수는 새로운 함수객체가 된다.
+
+자바스크립트에서 동일한 객체더라도 재생성 되면 메모리에서 새로운 객체로 인식되고, useEffect 에서도 새로운 함수로 받아들여 컴포넌트를 재실행 한다.
+
+### 해결방안
+이런 불필요한 랜더링을 방지하기 위해 useHttp 커스텀 훅에서 sendRequest 함수를 useCallback으로 감싸주면 된다.
+
+useHttp 커스텀 훅에 전달되는 2가지 인자(requestConfig, applyData) 역시 객체이므로 App 컴포넌트가 재평가 될때마다 재실행된다. 따라서 useMemo를 사용하든 인자를 사용할 함수에서 직접 받도록 코드를 수정해줘야 한다. 
+여기서는 App 컴포넌트의 transformTasks도 useCallback을 사용하여 감싼다. 하지만 여기서는 의존성 배열에 아무 것도 넣지 않아도 된다. setTasks 외에 어떠한 것도 외부에 있는 것을 사용하지 않으므로 이는 불변성이 보장되기 때문이다.
+
+그러나, 이렇게 작성을해도 useHttp 커스텀 훅에 전달되는 첫번째 인자인 { url: 'blabla..' }
+객체는 여전히 매번 재생성 된다. 
+-> 커스텀 훅에 전달되는 requestConfig를 sendRequest 에서 직접 전달 되도록 하고, 위 객체를 useHttp가 아닌 fetchTasks 의 인자로 넘겨주면 된다.
+    데이터 변환 함수 역시 이처럼 리팩토링이 가능하다. transformTasks의 useCallback을 지우고 이 역시 sendRequest에서 직접 받도록 하고 , fetchTasks의 2번째 인자로 넘겨준다.
+
+여기까지 하고 나면 useHttp 는 어떤 의존성,매개변수 없이 호출이 가능하다.

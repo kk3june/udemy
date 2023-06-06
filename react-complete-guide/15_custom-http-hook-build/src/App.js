@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 import Tasks from './components/Tasks/Tasks';
 import NewTask from './components/NewTask/NewTask';
@@ -16,15 +16,15 @@ function App() {
         loadedTasks.push({ id: taskKey, text: taskObj[taskKey].text });
       }
 
+    };
       setTasks(loadedTasks);
-  }
 
   // useHttp 는 매개변수를 받기도 하지만 loading 상태, error 상태, sendRequest의 포인터를 return 한다.
-  const { isLoading, error, sendRequest: fetchTasks } = useHttp({url: 'https://react-http-6b4a6.firebaseio.com/tasks.json'}, transformTasks);
+  const { isLoading, error, sendRequest: fetchTasks } = useHttp();
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    fetchTasks({url: 'https://react-http-6b4a6.firebaseio.com/tasks.json'}, transformTasks);
+  }, [fetchTasks]);
 
   const taskAddHandler = (task) => {
     setTasks((prevTasks) => prevTasks.concat(task));
